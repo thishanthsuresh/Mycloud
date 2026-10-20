@@ -13,6 +13,7 @@ export async function POST(_req: Request, context: RouteContext<"/api/chatcloud/
     .update({ last_accessed_at: new Date().toISOString() })
     .eq("id", id)
     .eq("user_id", user.id)
+    .eq("is_vaulted", false)
     .select("id")
     .maybeSingle();
   if (error) {

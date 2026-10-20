@@ -62,7 +62,7 @@ export default function FilesTab() {
   }, []);
 
   const newMessengerFiles = seenMessengerFiles
-    ? files.filter((file) => file.storage_path.includes("/messenger/") && !seenMessengerFiles.has(file.id))
+  ? files.filter((file) => !file.is_vaulted && !file.is_hidden && file.storage_path.includes("/messenger/") && !seenMessengerFiles.has(file.id))
     : [];
 
   function dismissMessengerNotice() {
@@ -80,6 +80,7 @@ export default function FilesTab() {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const matching = files.filter((f) => {
+      if (f.is_hidden) return false;
       if (category !== "All" && f.category !== category) return false;
       if (!q) return true;
       return [f.display_name, f.original_name, f.category].some((v) => v.toLowerCase().includes(q));
@@ -94,6 +95,7 @@ export default function FilesTab() {
       return b.created_at.localeCompare(a.created_at);
     });
   }, [files, query, category, sortBy]);
+  const chatcloudFiles = files.filter((file) => !file.is_hidden);
 
   async function addCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -233,7 +235,8 @@ export default function FilesTab() {
   }
 
   async function scanExistingFiles() {
-    if (scanning || files.length === 0) return;
+    const scannableFiles = files.filter((file) => !file.is_vaulted && !file.is_hidden);
+    if (scanning || scannableFiles.length === 0) return;
     setScanning(true);
     setScanMessage(null);
     let created = 0;
@@ -242,8 +245,8 @@ export default function FilesTab() {
     const issues: string[] = [];
 
     try {
-      for (const [index, file] of files.entries()) {
-        setScanProgress(`Analyzing ${index + 1} of ${files.length}: ${file.display_name}`);
+      for (const [index, file] of scannableFiles.entries()) {
+        setScanProgress(`Analyzing ${index + 1} of ${scannableFiles.length}: ${file.display_name}`);
         try {
           const response = await fetch(`/api/chatcloud/files/${encodeURIComponent(file.id)}/analyze`, { method: "POST" });
           const result = await response.json() as {
@@ -289,6 +292,7 @@ export default function FilesTab() {
             <p className="truncate font-medium text-slate-800">
               {f.display_name} {f.ai_status === "ai" && <span title="Named by AI" className="text-xs">✨</span>}
             </p>
+            {f.is_vaulted && <span className="mt-1 inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">Locked in Personal Vault</span>}
             {f.storage_path.includes("/messenger/") && <span className="mt-1 inline-block rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">Added via Messenger</span>}
             {f.original_name !== f.display_name && <p className="truncate text-xs text-slate-400">was: {f.original_name}</p>}
           </div>
@@ -316,10 +320,16 @@ export default function FilesTab() {
       header: "",
       render: (f) => (
         <div className="flex justify-end gap-1 text-sm">
-          <button onClick={() => void open(f)} className="rounded px-2 py-1 text-indigo-600 hover:bg-indigo-50">Open</button>
-          <button onClick={() => void open(f, true)} className="hidden rounded px-2 py-1 text-slate-600 hover:bg-slate-100 sm:block">Download</button>
-          <button onClick={() => startEdit(f)} className="rounded px-2 py-1 text-slate-600 hover:bg-slate-100">Edit</button>
-          <button onClick={() => setDeleting(f)} className="rounded px-2 py-1 text-red-600 hover:bg-red-50">Delete</button>
+          {f.is_vaulted ? (
+            <span className="px-2 py-1 text-xs text-amber-800">Unlock in Security &amp; Vault</span>
+          ) : (
+            <>
+              <button onClick={() => void open(f)} className="rounded px-2 py-1 text-indigo-600 hover:bg-indigo-50">Open</button>
+              <button onClick={() => void open(f, true)} className="hidden rounded px-2 py-1 text-slate-600 hover:bg-slate-100 sm:block">Download</button>
+              <button onClick={() => startEdit(f)} className="rounded px-2 py-1 text-slate-600 hover:bg-slate-100">Edit</button>
+              <button onClick={() => setDeleting(f)} className="rounded px-2 py-1 text-red-600 hover:bg-red-50">Delete</button>
+            </>
+          )}
         </div>
       ),
     },
@@ -349,7 +359,7 @@ export default function FilesTab() {
         <div className="ml-auto flex gap-2">
           <button
             onClick={() => void scanExistingFiles()}
-            disabled={scanning || files.length === 0}
+            disabled={scanning || files.every((file) => file.is_vaulted || file.is_hidden)}
             className="rounded-lg border border-indigo-300 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
           >
             {scanning ? "Scanning…" : "Find renewals in existing files"}
@@ -401,7 +411,7 @@ export default function FilesTab() {
                 <button onClick={() => setCategory(category === item.name ? "All" : item.name)} className="min-w-0 flex-1 text-left">
                   <span className="text-xl">{categoryIcon(item.name)}</span>
                   <span className="mt-1 block truncate text-sm font-medium text-slate-800">{item.name}</span>
-                  <span className="text-xs text-slate-500">{item.file_count} files</span>
+                  <span className="text-xs text-slate-500">{files.filter((file) => !file.is_hidden && file.category === item.name).length} files</span>
                 </button>
                 {item.name.toLowerCase() !== "other" && (
                   <button onClick={() => setDeletingCategory(item)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title={`Delete ${item.name}`} aria-label={`Delete ${item.name} category`}>×</button>
@@ -414,6 +424,8 @@ export default function FilesTab() {
 
       {loading ? (
         <p className="py-10 text-center text-sm text-slate-500">Loading your files…</p>
+      ) : chatcloudFiles.length === 0 && files.length > 0 ? (
+        <EmptyState icon="🔒" title="Files are hidden" description="Your files are hidden from this list. Manage their visibility in Security & Vault." />
       ) : files.length === 0 ? (
         <EmptyState
           icon="📁"

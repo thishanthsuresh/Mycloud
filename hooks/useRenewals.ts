@@ -17,7 +17,7 @@ export function useRenewals() {
   const refresh = useCallback(async () => {
     const [r, f] = await Promise.all([
       supabase.from("renewals").select("*").order("due_date", { ascending: true }).limit(500),
-      supabase.from("cloud_files").select("id, display_name").order("display_name", { ascending: true }).limit(500),
+      supabase.from("cloud_files").select("id, display_name").eq("is_hidden", false).order("display_name", { ascending: true }).limit(500),
     ]);
     if (r.error) setError(r.error.message);
     else {

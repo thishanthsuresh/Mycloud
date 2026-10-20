@@ -1,8 +1,17 @@
 import ModulePage from "@/components/ui/ModulePage";
-// import YourComponent from "@/components/features/security/YourComponent";
+import DevicesPanel from "@/components/features/security/DevicesPanel";
+import EncryptedShare from "@/components/features/security/EncryptedShare";
+import PersonalVault from "@/components/features/security/PersonalVault";
 
 export default function Page() {
-  // Attach your screens: keys must match the tabs in lib/modules.ts
-  // e.g. sections={{ "Devices": <YourComponent /> }}
-  return <ModulePage slug="security" />;
+  return (
+    <ModulePage
+      slug="security"
+      sections={{
+        Devices: <DevicesPanel />,
+        "Personal Vault": <PersonalVault />,
+        "Encrypted Share": <EncryptedShare />,
+      }}
+    />
+  );
 }

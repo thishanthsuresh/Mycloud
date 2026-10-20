@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { getClientDeviceId } from '@/lib/security/device';
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -30,18 +31,20 @@ export default function AuthPage() {
           },
         });
         if (error) throw error;
-        if (data.session) {
+        if (data.session && data.user) {
+          await recordDevice();
           router.replace('/chatcloud');
           router.refresh();
         } else {
           setSuccessMsg('Account created. Check your email for a confirmation link.');
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
+        if (data.user) await recordDevice();
         router.push('/chatcloud'); // Redirect after successful login
         router.refresh();
       }
@@ -51,6 +54,24 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+
+  async function recordDevice() {
+    try {
+      const response = await fetch('/api/security/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientDeviceId: getClientDeviceId() }),
+      });
+      if (!response.ok) {
+        const result = await response.json() as { error?: string };
+        setSuccessMsg(`Signed in, but device history could not be updated: ${result.error ?? 'Could not record this device sign-in.'}`);
+        return;
+      }
+    } catch (error) {
+      console.error('[security] device sign-in record failed:', error instanceof Error ? error.message : error);
+      setSuccessMsg(`Signed in, but device history could not be updated: ${error instanceof Error ? error.message : 'Could not record this device sign-in.'}`);
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 text-slate-100">

@@ -33,10 +33,10 @@ export const MODULES: ModuleDef[] = [
     features: ["Add and edit transactions", "Savings goals with progress", "Spending charts by category", "Receipt data extraction", "Link transactions to files"],
   },
   {
-    slug: "security", name: "Security & Vault", owner: "S. Kavina", icon: "🛡️", status: "not-started",
-    description: "Device pairing, device management and a PIN-locked emergency vault.",
-    tabs: ["Devices", "Emergency Vault", "QR Pairing"],
-    features: ["QR device pairing (with / without data)", "Device manager and revoke access", "PIN-locked emergency vault", "Encrypted offline package", "Unusual login flagging"],
+    slug: "security", name: "Security & Vault", owner: "S. Kavina", icon: "🛡️", status: "live",
+    description: "Review device sign-ins, encrypt personal files in a PIN-protected vault, and send encrypted files through Messenger.",
+    tabs: ["Devices", "Personal Vault", "Encrypted Share"],
+    features: [],
   },
   {
     slug: "chatbot", name: "AI Chatbot", owner: "Muraliharan Ashvijan", icon: "🤖", status: "in-progress",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { decryptFile } from "@/lib/security/file-crypto";
 
 type MessengerUser = {
   user_id: string;
@@ -26,6 +27,11 @@ type Message = {
   media_name: string | null;
   media_type: string | null;
   media_size: number | null;
+  is_encrypted: boolean;
+  encryption_salt: string | null;
+  encryption_iv: string | null;
+  pin_digits: number;
+  original_mime_type: string | null;
   mediaUrl: string | null;
   created_at: string;
 };
@@ -58,6 +64,8 @@ export default function Messenger() {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [sending, setSending] = useState(false);
   const [forwardingMessageId, setForwardingMessageId] = useState<string | null>(null);
+  const [unlockingMessageId, setUnlockingMessageId] = useState<string | null>(null);
+  const [decryptPin, setDecryptPin] = useState("");
   const [searching, setSearching] = useState(false);
   const [email, setEmail] = useState("");
   const [messageBody, setMessageBody] = useState("");
@@ -200,6 +208,46 @@ export default function Messenger() {
     } finally {
       setForwardingMessageId(null);
     }
+
+  }
+
+  async function unlockAttachment(message: Message) {
+    if (!message.mediaUrl || !message.encryption_salt || !message.encryption_iv) {
+      setError("This encrypted attachment is missing its unlock information.");
+      return;
+    }
+    if (!new RegExp(`^\\d{${message.pin_digits}}$`).test(decryptPin)) {
+      setError(`Enter the ${message.pin_digits}-digit PIN from the sender.`);
+      return;
+    }
+    setError(null);
+    setSending(true);
+    try {
+      const response = await fetch(message.mediaUrl);
+      if (!response.ok) throw new Error("Could not download the encrypted attachment.");
+      const decrypted = await decryptFile(
+        await response.arrayBuffer(),
+        decryptPin,
+        message.encryption_salt,
+        message.encryption_iv,
+        message.pin_digits,
+      );
+      const url = URL.createObjectURL(new Blob([decrypted], { type: message.original_mime_type ?? "application/octet-stream" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = message.media_name ?? "decrypted-file";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setDecryptPin("");
+      setUnlockingMessageId(null);
+      setNotice("Attachment decrypted in this browser and downloaded.");
+    } catch (err) {
+      setError(err instanceof Error && err.name === "OperationError"
+        ? "That PIN did not unlock this attachment."
+        : err instanceof Error ? err.message : "Could not decrypt the attachment.");
+    } finally {
+      setSending(false);
+    }
   }
 
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedId);
@@ -309,19 +357,53 @@ export default function Messenger() {
                       own ? "rounded-br-sm bg-indigo-600 text-white" : "rounded-bl-sm border border-slate-200 bg-white text-slate-800"
                     }`}>
                       {message.body && <p className="whitespace-pre-wrap break-words text-sm">{message.body}</p>}
-                      {message.mediaUrl && message.media_type?.startsWith("image/") && (
+                      {message.is_encrypted && message.mediaUrl && (
+                        <div className={`mt-2 rounded-lg p-3 ${own ? "bg-indigo-700 text-white" : "bg-slate-100 text-slate-800"}`}>
+                          <p className="text-sm font-medium">🔒 PIN-protected attachment</p>
+                          <p className="mt-1 break-all text-xs">{message.media_name ?? "Encrypted file"} · {formatSize(message.media_size)}</p>
+                          {unlockingMessageId === message.id ? (
+                            <form onSubmit={(event) => { event.preventDefault(); void unlockAttachment(message); }} className="mt-2 flex flex-wrap gap-2">
+                              <input
+                                type="password"
+                                inputMode="numeric"
+                                pattern={`[0-9]{${message.pin_digits}}`}
+                                maxLength={message.pin_digits}
+                                minLength={message.pin_digits}
+                                required
+                                autoComplete="off"
+                                aria-label={`Sender's ${message.pin_digits}-digit decryption PIN`}
+                                placeholder={`${message.pin_digits}-digit PIN`}
+                                value={decryptPin}
+                                onChange={(event) => setDecryptPin(event.target.value.replace(/\D/g, "").slice(0, message.pin_digits))}
+                                className="w-28 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900"
+                              />
+                              <button type="submit" disabled={sending || decryptPin.length !== message.pin_digits} className="rounded bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+                                {sending ? "Decrypting…" : "Decrypt"}
+                              </button>
+                              <button type="button" onClick={() => { setUnlockingMessageId(null); setDecryptPin(""); }} className="rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-700">
+                                Cancel
+                              </button>
+                            </form>
+                          ) : (
+                            <button type="button" onClick={() => { setError(null); setDecryptPin(""); setUnlockingMessageId(message.id); }} className="mt-2 rounded border border-indigo-300 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+                              Enter PIN to decrypt
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {!message.is_encrypted && message.mediaUrl && message.media_type?.startsWith("image/") && (
                         <a href={message.mediaUrl} target="_blank" rel="noreferrer">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={message.mediaUrl} alt={message.media_name ?? "Shared image"} className="mt-1 max-h-72 max-w-full rounded-lg object-contain" />
                         </a>
                       )}
-                      {message.mediaUrl && message.media_type?.startsWith("video/") && (
+                      {!message.is_encrypted && message.mediaUrl && message.media_type?.startsWith("video/") && (
                         <video src={message.mediaUrl} controls className="mt-1 max-h-72 max-w-full rounded-lg" />
                       )}
-                      {message.mediaUrl && message.media_type?.startsWith("audio/") && (
+                      {!message.is_encrypted && message.mediaUrl && message.media_type?.startsWith("audio/") && (
                         <audio src={message.mediaUrl} controls className="mt-1 max-w-full" />
                       )}
-                      {message.mediaUrl && message.media_type === "application/pdf" && (
+                      {!message.is_encrypted && message.mediaUrl && message.media_type === "application/pdf" && (
                         <a href={message.mediaUrl} target="_blank" rel="noreferrer" className={`mt-1 flex items-center gap-2 rounded-lg p-2 text-sm underline ${
                           own ? "bg-indigo-700 text-white" : "bg-slate-100 text-indigo-700"
                         }`}>
@@ -329,7 +411,7 @@ export default function Messenger() {
                           <span className="text-xs no-underline">{formatSize(message.media_size)}</span>
                         </a>
                       )}
-                      {!own && !isSelfChat && message.media_path && (
+                      {!message.is_encrypted && !own && !isSelfChat && message.media_path && (
                         <button
                           type="button"
                           onClick={() => void forwardToSelf(message)}

@@ -70,6 +70,7 @@ export function useChatcloudFiles() {
   /** A temporary (5 minute) link to open or download a private file. */
   const getSignedUrl = useCallback(
     async (file: CloudFile, download = false) => {
+      if (file.is_vaulted) throw new Error("This file is locked in your Personal Vault.");
       const tracked = await fetch(`/api/chatcloud/files/${encodeURIComponent(file.id)}/access`, { method: "POST" });
       const trackingJson = (await tracked.json().catch(() => ({}))) as { error?: string };
       if (!tracked.ok) throw new Error(trackingJson.error ?? "Could not record file usage.");

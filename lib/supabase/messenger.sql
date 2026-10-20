@@ -138,7 +138,7 @@ VALUES (
   'messenger-media',
   false,
   10485760,
-  ARRAY['image/*', 'video/*', 'audio/*', 'application/pdf']
+  ARRAY['image/*', 'video/*', 'audio/*', 'application/pdf', 'application/octet-stream']
 )
 ON CONFLICT (id) DO UPDATE
 SET public = false,

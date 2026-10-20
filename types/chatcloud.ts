@@ -13,6 +13,8 @@ export type CloudFile = {
   source?: string;
   last_accessed_at: string | null;
   created_at: string;
+  is_vaulted: boolean;
+  is_hidden: boolean;
 };
 
 export type ChatcloudCategory = {

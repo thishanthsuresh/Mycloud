@@ -18,7 +18,12 @@ export async function POST(request: Request) {
   if (!question || question.length > 2000) {
     return Response.json({ error: "Questions must be between 1 and 2,000 characters." }, { status: 400 });
   }
-  if (body?.conversationId !== undefined && (typeof body.conversationId !== "string" || !UUID_PATTERN.test(body.conversationId))) {
+  const requestedConversationId = body?.conversationId;
+  if (
+    requestedConversationId !== undefined &&
+    requestedConversationId !== null &&
+    (typeof requestedConversationId !== "string" || !UUID_PATTERN.test(requestedConversationId))
+  ) {
     return Response.json({ error: "A valid conversation is required." }, { status: 400 });
   }
 

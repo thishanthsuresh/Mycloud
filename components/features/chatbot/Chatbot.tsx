@@ -105,7 +105,6 @@ export default function Chatbot() {
       setConversationId(result.conversationId);
       setMessages((current) => [...current, ...result.messages]);
       setQuestion("");
-      await refreshHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not get an answer.");
     } finally {

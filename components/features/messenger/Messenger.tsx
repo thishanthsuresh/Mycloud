@@ -67,6 +67,7 @@ export default function Messenger() {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [sending, setSending] = useState(false);
   const [forwardingMessageId, setForwardingMessageId] = useState<string | null>(null);
+  const [savingChatcloudMessageId, setSavingChatcloudMessageId] = useState<string | null>(null);
   const [unlockingMessageId, setUnlockingMessageId] = useState<string | null>(null);
   const [decryptPin, setDecryptPin] = useState("");
   const [searching, setSearching] = useState(false);
@@ -214,6 +215,25 @@ export default function Messenger() {
 
   }
 
+  async function saveToChatCloud(message: Message) {
+    if (savingChatcloudMessageId || !message.media_path) return;
+    setSavingChatcloudMessageId(message.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await requestJson<{ status: "saved" | "already-saved" }>("/api/messenger/save-to-chatcloud", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: message.id }),
+      });
+      setNotice(result.status === "already-saved" ? "This attachment is already in ChatCloud." : "Attachment saved to ChatCloud.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the attachment to ChatCloud.");
+    } finally {
+      setSavingChatcloudMessageId(null);
+    }
+  }
+
   async function unlockAttachment(message: Message) {
     if (!message.mediaUrl || !message.encryption_salt || !message.encryption_iv) {
       setError("This encrypted attachment is missing its unlock information.");
@@ -255,6 +275,7 @@ export default function Messenger() {
 
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedId);
   const isSelfChat = selectedConversation?.otherUser?.user_id === userId;
+  const regularConversations = conversations.filter((conversation) => conversation.otherUser?.user_id !== userId);
   const conversationTitle = isSelfChat
     ? "You"
     : selectedConversation?.otherUser?.display_name ?? selectedConversation?.otherUser?.email ?? "Conversation";
@@ -279,6 +300,18 @@ export default function Messenger() {
           >
             🧾 &nbsp; Bills
             <span className="mt-0.5 block pl-6 text-xs font-normal text-emerald-700">Send bills and track expenses</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void startConversation(userId)}
+            disabled={!userId || searching}
+            aria-pressed={isSelfChat}
+            className={`mt-2 block w-full rounded-lg border border-indigo-200 px-3 py-2 text-left text-sm font-medium text-indigo-800 hover:bg-indigo-100 disabled:cursor-wait disabled:opacity-60 ${
+              isSelfChat ? "bg-indigo-100" : "bg-indigo-50"
+            }`}
+          >
+            ☁️ &nbsp; You
+            <span className="mt-0.5 block pl-6 text-xs font-normal text-indigo-700">Your private saved chat</span>
           </button>
           <form onSubmit={findUser} className="mt-3 space-y-2">
             <label htmlFor="messenger-email" className="block text-xs font-medium text-slate-600">
@@ -308,12 +341,11 @@ export default function Messenger() {
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loadingConversations ? (
             <p className="p-4 text-sm text-slate-500">Loading chats...</p>
-          ) : conversations.length === 0 ? (
-            <p className="p-4 text-sm leading-6 text-slate-500">No chats yet. Start a conversation or send a message to yourself.</p>
-          ) : conversations.map((conversation) => {
-            const self = conversation.otherUser?.user_id === userId;
-            const label = self ? "You" : conversation.otherUser?.display_name ?? conversation.otherUser?.email ?? "MyCloud user";
-            const subtitle = self ? "Your private saved chat" : conversation.otherUser?.email ?? "";
+          ) : regularConversations.length === 0 ? (
+            <p className="p-4 text-sm leading-6 text-slate-500">No conversations yet. Start a chat by email or open your private saved chat.</p>
+          ) : regularConversations.map((conversation) => {
+            const label = conversation.otherUser?.display_name ?? conversation.otherUser?.email ?? "MyCloud user";
+            const subtitle = conversation.otherUser?.email ?? "";
             return (
               <button
                 key={conversation.id}
@@ -328,7 +360,7 @@ export default function Messenger() {
                 }`}
               >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-lg">
-                  {self ? "☁️" : "👤"}
+                  👤
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-slate-900">{label}</span>
@@ -431,6 +463,16 @@ export default function Messenger() {
                           className="mt-2 block rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:cursor-wait disabled:opacity-60"
                         >
                           {forwardingMessageId === message.id ? "Saving..." : "Forward to You"}
+                        </button>
+                      )}
+                      {!message.is_encrypted && !isSelfChat && message.media_path && (
+                        <button
+                          type="button"
+                          onClick={() => void saveToChatCloud(message)}
+                          disabled={savingChatcloudMessageId !== null}
+                          className="mt-2 block rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:cursor-wait disabled:opacity-60"
+                        >
+                          {savingChatcloudMessageId === message.id ? "Saving..." : "Save to ChatCloud"}
                         </button>
                       )}
                       <p className={`mt-1 text-right text-[10px] ${own ? "text-indigo-100" : "text-slate-400"}`}>

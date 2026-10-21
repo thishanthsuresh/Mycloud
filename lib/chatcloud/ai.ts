@@ -24,8 +24,8 @@ const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp
 const MAX_CONTENT_BYTES = 5 * 1024 * 1024; // only send files up to 5 MB to the AI
 const FALLBACK_MODEL = "gemini-flash-lite-latest";
 
-function isTemporaryGeminiError(message: string) {
-  return /(?:\b503\b|UNAVAILABLE|high demand|temporarily unavailable|currently experiencing|operation was aborted|timed?\s*out)/i.test(message);
+function canRetryWithFallback(message: string) {
+  return /(?:\b429\b|\b503\b|RESOURCE_EXHAUSTED|UNAVAILABLE|high demand|temporarily unavailable|currently experiencing|operation was aborted|timed?\s*out|\b404\b|not found|model.*(?:not found|not available))/i.test(message);
 }
 
 function contentType(input: AnalyzeInput) {
@@ -81,7 +81,7 @@ export async function analyzeFile(input: AnalyzeInput): Promise<FileAnalysis> {
   const googleApiKey = process.env.GOOGLE_API_KEY?.trim();
   const apiKey = geminiApiKey || googleApiKey;
   const keyVariable = geminiApiKey ? "GEMINI_API_KEY" : "GOOGLE_API_KEY";
-  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
   if (!apiKey) {
     return { ...fallback, aiNotice: "Gemini is not configured. Add GEMINI_API_KEY to .env.local, then restart the dev server." };
   }
@@ -135,9 +135,9 @@ export async function analyzeFile(input: AnalyzeInput): Promise<FileAnalysis> {
     try {
       response = await generate(model);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "";
-      if (!isTemporaryGeminiError(message) || model === FALLBACK_MODEL) throw err;
-      console.warn(`[chatcloud] Gemini model ${model} is temporarily unavailable; retrying with ${FALLBACK_MODEL}.`);
+      const message = err instanceof Error ? err.message : String(err);
+      if (!canRetryWithFallback(message) || model === FALLBACK_MODEL) throw err;
+      console.warn(`[chatcloud] Gemini model ${model} failed; retrying with ${FALLBACK_MODEL}.`);
       response = await generate(FALLBACK_MODEL);
     }
     const text = response.text ?? "";
@@ -156,15 +156,17 @@ export async function analyzeFile(input: AnalyzeInput): Promise<FileAnalysis> {
       aiNotice: null,
     };
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Unknown AI analysis error";
+    const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("[chatcloud] AI analysis failed, using fallback:", errorMessage);
     const aiNotice = /API_KEY_INVALID|API key not valid/i.test(errorMessage)
       ? `Google's Gemini endpoint returned API_KEY_INVALID for the ${keyVariable} value loaded by this server (model: ${model}; value length: ${apiKey.length}, key contents hidden). This does not establish whether the key shown in AI Studio is invalid. Check that the server is using that exact key, that its Google Cloud project has the Generative Language API enabled, and that the key's API restrictions allow that API. Save .env.local and fully restart the dev server after any change.`
       : /401|403|API key|permission denied|unauthorized/i.test(errorMessage)
         ? "Gemini rejected the API key or it lacks permission. Check that it is a Gemini API key enabled for the Gemini Developer API, then restart the dev server."
+      : /429|RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(errorMessage)
+        ? `Gemini's analysis quota is unavailable for the configured model and fallback "${FALLBACK_MODEL}". Check the Gemini API quota or try again later.`
       : /404|not found/i.test(errorMessage)
-        ? `Gemini model "${model}" was not found or is no longer available. Set GEMINI_MODEL to a supported model in .env.local, or remove it to use the default gemini-3.8-flash model.`
-        : isTemporaryGeminiError(errorMessage)
+        ? `Gemini model "${model}" and fallback "${FALLBACK_MODEL}" were not found or are no longer available. Set GEMINI_MODEL to a supported model in .env.local, or remove it to use the default gemini-3.8-flash model.`
+        : /503|UNAVAILABLE|high demand|temporarily unavailable|currently experiencing|operation was aborted|timed?\s*out/i.test(errorMessage)
           ? `Gemini is temporarily overloaded or timed out. The fallback model "${FALLBACK_MODEL}" could not complete analysis either; try again shortly.`
         : "Gemini content analysis failed, so this is only a filename-based guess. Check the server terminal for the Gemini error.";
     return { ...fallback, aiNotice };

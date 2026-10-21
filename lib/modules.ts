@@ -51,10 +51,10 @@ export const MODULES: ModuleDef[] = [
     features: [],
   },
   {
-    slug: "professional", name: "Professional Space", owner: "J. Aarwin", icon: "🏢", status: "not-started",
+    slug: "professional", name: "Professional Space", owner: "J. Aarwin", icon: "🏢", status: "in-progress",
     description: "Organization workspace where managers request documents from employees.",
     tabs: ["Requests", "Shared Folders", "Members"],
-    features: ["Create organization and invite staff", "Document requests with due dates", "Request status workflow", "Shared folders with selected access", "Admin vs employee views"],
+    features: [],
   },
 ];
 

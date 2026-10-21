@@ -32,7 +32,7 @@ export default function AuthPage() {
         });
         if (error) throw error;
         if (data.session && data.user) {
-          await recordDevice();
+          await recordDevice(data.session.access_token);
           router.replace('/chatcloud');
           router.refresh();
         } else {
@@ -44,7 +44,7 @@ export default function AuthPage() {
           password,
         });
         if (error) throw error;
-        if (data.user) await recordDevice();
+        if (data.session) await recordDevice(data.session.access_token);
         router.push('/chatcloud'); // Redirect after successful login
         router.refresh();
       }
@@ -55,11 +55,14 @@ export default function AuthPage() {
     }
   };
 
-  async function recordDevice() {
+  async function recordDevice(accessToken: string) {
     try {
       const response = await fetch('/api/security/devices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + accessToken,
+        },
         body: JSON.stringify({ clientDeviceId: getClientDeviceId() }),
       });
       if (!response.ok) {

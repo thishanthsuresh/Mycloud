@@ -1,8 +1,5 @@
-import ModulePage from "@/components/ui/ModulePage";
-// import YourComponent from "@/components/features/professional/YourComponent";
+import ProfessionalSpace from "@/components/features/professional/ProfessionalSpace";
 
 export default function Page() {
-  // Attach your screens: keys must match the tabs in lib/modules.ts
-  // e.g. sections={{ "Requests": <YourComponent /> }}
-  return <ModulePage slug="professional" />;
+  return <ProfessionalSpace />;
 }

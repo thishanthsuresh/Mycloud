@@ -1,6 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { getModule, STATUS_STYLES } from "@/lib/modules";
+import { getModule } from "@/lib/modules";
 
 type Props = {
   slug: string;
@@ -12,7 +12,6 @@ type Props = {
 
 export default function ModulePage({ slug, sections = {}, initialTab }: Props) {
   const mod = getModule(slug);
-  const status = STATUS_STYLES[mod.status];
   const [active, setActive] = useState(() => initialTab && mod.tabs.includes(initialTab) ? initialTab : mod.tabs[0]);
   const content = sections[active];
   const hasPlannedFeatures = mod.features.length > 0;
@@ -28,7 +27,6 @@ export default function ModulePage({ slug, sections = {}, initialTab }: Props) {
             <p className="mt-2 text-xs text-slate-500">Module owner: <span className="font-medium text-slate-700">{mod.owner}</span></p>
           </div>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-medium ${status.chip}`}>{status.label}</span>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-3">

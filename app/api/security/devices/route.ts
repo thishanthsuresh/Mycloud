@@ -51,7 +51,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const authorization = request.headers.get("authorization");
+  const bearerToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const { data: { user }, error: authError } = await supabase.auth.getUser(bearerToken);
   if (authError) {
     console.error("[security] device sign-in authentication failed:", authError.message);
     return Response.json({ error: "Could not verify your account." }, { status: 401 });

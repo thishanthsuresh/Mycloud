@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { MODULES, STATUS_STYLES } from "@/lib/modules";
+import { MODULES } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/client";
 
 export default function Sidebar() {
@@ -87,7 +87,6 @@ export default function Sidebar() {
                   <span className="block truncate font-medium">{m.name}</span>
                   <span className="block truncate text-xs opacity-70">{m.owner}</span>
                 </span>
-                <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_STYLES[m.status].dot}`} title={STATUS_STYLES[m.status].label} />
               </Link>
             );
           })}

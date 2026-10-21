@@ -27,10 +27,10 @@ export const MODULES: ModuleDef[] = [
     features: [],
   },
   {
-    slug: "financial", name: "Financial Manager", owner: "R. Kirushanth", icon: "💰", status: "not-started",
-    description: "Track spending from receipts and manage savings goals.",
-    tabs: ["Transactions", "Goals", "Insights"],
-    features: ["Add and edit transactions", "Savings goals with progress", "Spending charts by category", "Receipt data extraction", "Link transactions to files"],
+    slug: "financial", name: "Financial Manager", owner: "R. Kirushanth", icon: "💰", status: "in-progress",
+    description: "Track bills and expenses, scan receipts, and plan savings goals.",
+    tabs: ["Overview", "Bills", "Goals"],
+    features: [],
   },
   {
     slug: "security", name: "Security & Vault", owner: "S. Kavina", icon: "🛡️", status: "live",
@@ -46,7 +46,7 @@ export const MODULES: ModuleDef[] = [
   },
   {
     slug: "messenger", name: "Messenger", owner: "A. Venmukilan", icon: "💬", status: "in-progress",
-    description: "Send private messages and media to other users or save them in your personal chat.",
+    description: "Send private messages and media to other users, save them in your personal chat, and manage bills.",
     tabs: ["Conversations"],
     features: [],
   },

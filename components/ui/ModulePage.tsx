@@ -4,15 +4,16 @@ import { getModule, STATUS_STYLES } from "@/lib/modules";
 
 type Props = {
   slug: string;
+  initialTab?: string;
   // Attach your screens here: { Files: <FileList />, Renewals: <RenewalList /> }
   // Keys must match the `tabs` listed for your module in lib/modules.ts
   sections?: Record<string, ReactNode>;
 };
 
-export default function ModulePage({ slug, sections = {} }: Props) {
+export default function ModulePage({ slug, sections = {}, initialTab }: Props) {
   const mod = getModule(slug);
   const status = STATUS_STYLES[mod.status];
-  const [active, setActive] = useState(mod.tabs[0]);
+  const [active, setActive] = useState(() => initialTab && mod.tabs.includes(initialTab) ? initialTab : mod.tabs[0]);
   const content = sections[active];
   const hasPlannedFeatures = mod.features.length > 0;
 

@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { decryptFile } from "@/lib/security/file-crypto";
+import BillsChat from "./BillsChat";
+
+const BILLS_CHAT_ID = "private-bills-chat";
 
 type MessengerUser = {
   user_id: string;
@@ -114,7 +117,7 @@ export default function Messenger() {
   }, []);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || selectedId === BILLS_CHAT_ID) return;
     const initialLoad = window.setTimeout(() => void loadMessages(selectedId), 0);
     const interval = window.setInterval(() => void loadMessages(selectedId), 4000);
     return () => {
@@ -257,18 +260,25 @@ export default function Messenger() {
     : selectedConversation?.otherUser?.display_name ?? selectedConversation?.otherUser?.email ?? "Conversation";
 
   return (
-    <div className="grid min-h-[560px] overflow-hidden rounded-lg border border-slate-200 bg-white md:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="grid h-[min(78vh,820px)] min-h-[560px] grid-rows-[minmax(220px,0.8fr)_minmax(0,1.7fr)] overflow-hidden rounded-lg border border-slate-200 bg-white md:grid-cols-[280px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]">
       <aside className="flex min-h-0 flex-col border-b border-slate-200 md:border-b-0 md:border-r">
         <div className="border-b border-slate-200 p-4">
           <h2 className="text-base font-semibold text-slate-900">Chats</h2>
           <p className="mt-1 text-xs text-slate-500">Private chats with MyCloud users</p>
           <button
             type="button"
-            onClick={() => userId && void startConversation(userId)}
-            disabled={!userId || searching}
-            className="mt-3 w-full rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-left text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-60"
+            onClick={() => {
+              setError(null);
+              setNotice(null);
+              setSelectedId(BILLS_CHAT_ID);
+            }}
+            aria-pressed={selectedId === BILLS_CHAT_ID}
+            className={`mt-3 block w-full rounded-lg border border-emerald-200 px-3 py-2 text-left text-sm font-medium text-emerald-800 hover:bg-emerald-100 ${
+              selectedId === BILLS_CHAT_ID ? "bg-emerald-100" : "bg-emerald-50"
+            }`}
           >
-            ☁️ &nbsp; Chat with yourself
+            🧾 &nbsp; Bills
+            <span className="mt-0.5 block pl-6 text-xs font-normal text-emerald-700">Send bills and track expenses</span>
           </button>
           <form onSubmit={findUser} className="mt-3 space-y-2">
             <label htmlFor="messenger-email" className="block text-xs font-medium text-slate-600">
@@ -330,8 +340,10 @@ export default function Messenger() {
         </div>
       </aside>
 
-      <section className="flex min-h-[460px] min-w-0 flex-col">
-        {selectedConversation ? (
+      <section className="flex min-h-0 min-w-0 flex-col">
+        {selectedId === BILLS_CHAT_ID ? (
+          <BillsChat />
+        ) : selectedConversation ? (
           <>
             <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100">
@@ -344,7 +356,7 @@ export default function Messenger() {
                 </p>
               </div>
             </header>
-            <div ref={messagePane} className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4">
+            <div ref={messagePane} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4">
               {messages.length === 0 ? (
                 <p className="py-8 text-center text-sm text-slate-500">
                   {isSelfChat ? "Send a message or media here to keep it in your private chat." : "Say hello to start the conversation."}
